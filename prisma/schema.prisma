@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  telegramId  String   @unique
+  name        String
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  pets        Pet[]
+  orders      Order[]
+  analytics   Analytics[]
+  
+  plan        String   @default("starter") // starter, autopilot, multi-pet
+  autopilotEnabled Boolean @default(false)
+  
+  @@index([telegramId])
+}
+
+model Pet {
+  id              String   @id @default(uuid())
+  userId          String
+  name            String
+  type            String   // dog, cat
+  breed           String
+  age             Int      // months
+  weight          Float    // kg
+  activityLevel   String   @default("moderate") // low, moderate, high
+  preferredBrands String[]
+  dietaryRestrictions String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inventory       InventoryItem[]
+  orders          Order[]
+  
+  @@index([userId])
+}
+
+model InventoryItem {
+  id              String   @id @default(uuid())
+  petId           String
+  productName     String
+  brand           String
+  variant         String
+  totalWeight     Float    // grams
+  remainingWeight Float    // grams
+  dailyConsumption  Float    // grams/day (calculated)
+  reorderThreshold Int     @default(7) // days
+  lastUpdated     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  
+  pet             Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  
+  @@index([petId])
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  userId      String
+  petId       String
+  status      String   @default("pending_approval") // pending_approval, approved, placed, delivered, cancelled
+  items       Json     // array of OrderItem
+  vendor      String
+  totalAmount Float
+  affiliateUrl String?
+  trackingNumber String?
+  estimatedDelivery DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([petId])
+  @@index([status])
+}
+
+model Analytics {
+  id          String   @id @default(uuid())
+  userId      String
+  eventType   String   // click, order, conversion, etc.
+  eventData   Json?
+  vendor      String?
+  revenue     Float?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+}
