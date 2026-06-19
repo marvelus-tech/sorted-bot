@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { setupBot } from './bot';
 import { connectDatabase, disconnectDatabase } from './db';
+import { queueUpdate } from './services/queue';
 
 // Load environment variables
 dotenv.config();
@@ -17,11 +18,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Webhook endpoint for Telegram
+// Webhook endpoint for Telegram with retry logic
 app.post('/webhook', (req, res) => {
   const bot = (req.app as any).bot;
   if (bot) {
-    bot.processUpdate(req.body);
+    // Queue the update for processing with retry logic
+    queueUpdate(bot, req.body);
   }
   res.sendStatus(200);
 });
