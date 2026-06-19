@@ -10,7 +10,12 @@ import { createOrder, handleOrderCallback, confirmOrder, getOrderHistory } from 
 import prisma from './db';
 
 export function setupBot(token: string): TelegramBot {
-  const bot = new TelegramBot(token, { webHook: false });
+  // Use webhook mode for production, polling for development
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const bot = new TelegramBot(token, { 
+    webHook: !isDevelopment,
+    polling: isDevelopment
+  });
 
   // Command handlers
   bot.onText(/\/start/, async (msg) => {

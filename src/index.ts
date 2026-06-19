@@ -50,11 +50,20 @@ async function startServer(): Promise<void> {
       console.log('🤖 Bot webhook mode active');
     }
 
-    // Start Express server
-    app.listen(PORT, () => {
+    // Start server
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
     });
+
+    // Setup webhook in production
+    if (process.env.NODE_ENV !== 'development') {
+      const webhookUrl = process.env.WEBHOOK_URL || `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/webhook`;
+      if (webhookUrl) {
+        await bot.setWebHook(webhookUrl);
+        console.log(`🔗 Webhook set to: ${webhookUrl}`);
+      }
+    }
 
     // Graceful shutdown
     process.on('SIGTERM', async () => {
