@@ -17,9 +17,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Webhook endpoint for Telegram (if using webhooks instead of polling)
+// Webhook endpoint for Telegram
 app.post('/webhook', (req, res) => {
-  // Handle webhook
+  const bot = (req.app as any).bot;
+  if (bot) {
+    bot.processUpdate(req.body);
+  }
   res.sendStatus(200);
 });
 
@@ -36,11 +39,15 @@ async function startServer(): Promise<void> {
     }
 
     const bot = setupBot(token);
+    (app as any).bot = bot;
 
     // Start polling (for development)
     if (process.env.NODE_ENV === 'development') {
       bot.startPolling();
       console.log('🤖 Bot polling started');
+    } else {
+      // Production: webhook mode
+      console.log('🤖 Bot webhook mode active');
     }
 
     // Start Express server
