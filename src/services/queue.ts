@@ -17,8 +17,8 @@ export function queueMessage(
   chatId: number,
   text: string,
   options?: TelegramBot.SendMessageOptions,
-  maxRetries: number = 3,
-  retryDelay: number = 5000
+  maxRetries: number = 5,
+  retryDelay: number = 15000
 ): void {
   const message: QueuedMessage = {
     chatId,
@@ -53,7 +53,7 @@ async function processQueue(bot: TelegramBot): Promise<void> {
         console.error('Max retries reached, removing message from queue');
         messageQueue.shift();
       } else {
-        // Wait before retrying
+        // Wait before retrying (15 seconds between retries)
         await sleep(message.retryDelay);
       }
     }
@@ -71,6 +71,7 @@ interface QueuedUpdate {
   update: TelegramBot.Update;
   retries: number;
   maxRetries: number;
+  retryDelay: number;
 }
 
 const updateQueue: QueuedUpdate[] = [];
@@ -79,12 +80,14 @@ let isProcessingUpdates = false;
 export function queueUpdate(
   bot: TelegramBot,
   update: TelegramBot.Update,
-  maxRetries: number = 3
+  maxRetries: number = 5,
+  retryDelay: number = 15000
 ): void {
   const queuedUpdate: QueuedUpdate = {
     update,
     retries: 0,
-    maxRetries
+    maxRetries,
+    retryDelay
   };
 
   updateQueue.push(queuedUpdate);
@@ -111,8 +114,8 @@ async function processUpdateQueue(bot: TelegramBot): Promise<void> {
         console.error('Max retries reached, removing update from queue');
         updateQueue.shift();
       } else {
-        // Wait before retrying
-        await sleep(2000);
+        // Wait 15 seconds before retrying (gives server time to wake up)
+        await sleep(queuedUpdate.retryDelay);
       }
     }
   }
