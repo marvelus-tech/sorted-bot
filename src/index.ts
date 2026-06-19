@@ -2,7 +2,6 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { setupBot } from './bot';
 import { connectDatabase, disconnectDatabase } from './db';
-import { queueUpdate } from './services/queue';
 
 // Load environment variables
 dotenv.config();
@@ -18,13 +17,18 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Webhook endpoint for Telegram with retry logic
-app.post('/webhook', (req, res) => {
+// Webhook endpoint for Telegram - process immediately, respond quickly
+app.post('/webhook', async (req, res) => {
   const bot = (req.app as any).bot;
   if (bot) {
-    // Queue the update for processing with retry logic
-    queueUpdate(bot, req.body);
+    try {
+      // Process update immediately
+      bot.processUpdate(req.body);
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+    }
   }
+  // Always respond 200 OK to Telegram
   res.sendStatus(200);
 });
 
