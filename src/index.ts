@@ -1,7 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import { setupBot } from './bot';
-import { connectDatabase, disconnectDatabase } from './db';
+import { connectDatabase, disconnectDatabase, isDatabaseConnected } from './db';
 
 // Load environment variables
 dotenv.config();
@@ -13,30 +13,39 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  const dbConnected = await isDatabaseConnected();
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    database: dbConnected ? 'connected' : 'disconnected'
+  });
 });
 
 // Webhook endpoint for Telegram - process immediately, respond quickly
 app.post('/webhook', async (req, res) => {
+  // Always respond 200 OK to Telegram immediately
+  res.sendStatus(200);
+  
   const bot = (req.app as any).bot;
   if (bot) {
     try {
-      // Process update immediately
+      // Process update asynchronously after responding
       bot.processUpdate(req.body);
     } catch (error) {
       console.error('Error processing webhook:', error);
     }
   }
-  // Always respond 200 OK to Telegram
-  res.sendStatus(200);
 });
 
 // Start server
 async function startServer(): Promise<void> {
   try {
-    // Connect to database
-    await connectDatabase();
+    // Connect to database (don't fail if DB is not available)
+    const dbConnected = await connectDatabase();
+    if (!dbConnected) {
+      console.warn('⚠️ Running without database - some features may not work');
+    }
 
     // Setup Telegram bot
     const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -66,8 +75,12 @@ async function startServer(): Promise<void> {
     if (process.env.NODE_ENV !== 'development') {
       const webhookUrl = process.env.WEBHOOK_URL || `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/webhook`;
       if (webhookUrl) {
-        await bot.setWebHook(webhookUrl);
-        console.log(`🔗 Webhook set to: ${webhookUrl}`);
+        try {
+          await bot.setWebHook(webhookUrl);
+          console.log(`🔗 Webhook set to: ${webhookUrl}`);
+        } catch (error) {
+          console.error('Failed to set webhook:', error);
+        }
       }
     }
 
